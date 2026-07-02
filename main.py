@@ -1,9 +1,15 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response,CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import uuid
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://dash-o11rja.example.com"],
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 ALLOWED_ORIGIN = "https://dash-o11rja.example.com"
 EMAIL = "24f1002853@ds.study.iitm.ac.in"
