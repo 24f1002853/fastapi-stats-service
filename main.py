@@ -6,7 +6,7 @@ import uuid
 app = FastAPI()
 
 ALLOWED_ORIGIN = "https://dash-o11rja.example.com"
-EMAIL = "your-email@example.com"   # 🔴 replace with your actual email
+EMAIL = "24f1002853@ds.study.iitm.ac.in"
 
 
 # -------- Middleware for headers --------
