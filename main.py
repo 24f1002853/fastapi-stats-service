@@ -1,39 +1,63 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
 import time
 import uuid
+import jwt
+from jwt import InvalidTokenError
 
 app = FastAPI()
 
+# -------------------------------
+# Assignment 1 Configuration
+# -------------------------------
 ALLOWED_ORIGIN = "https://dash-o11rja.example.com"
 EMAIL = "24f1002853@ds.study.iitm.ac.in"
 
+# -------------------------------
+# Assignment 2 Configuration
+# -------------------------------
+ISSUER = "https://idp.exam.local"
+AUDIENCE = "tds-wndcfjks.apps.exam.local"
 
-# Root endpoint (optional but recommended)
+PUBLIC_KEY = """
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2okOHspNjgA+2rTLbeuY
+cxiP/hG8C6Sb9iwg3yiLAA4HCnpITcbWCSelbvbYGuc3EbNy4xFyf5Cbj5DHJMID
+EkryOgyd2giIIIBOUBj8S63uGcnRpOBh9NFatfNwheKuzsPuVNldu6A9cNteNpXc
+WyJjG2axVfmq7i6SuKr1JoWYG7xTTAvKPujSl4OtsQfO3h5NepzdfXpr28oNnzfW
+ed+zclR6BcmNNo/WVfJ4xyCLSf0BCOgdTgW6PdaChd1l9VDetJZVEgC5tkyvXsfI
+SI6iyrYbKR0NEBSqq4XkadEjsCs4F1RncsS4LlgniT7GlkL9Mce3b0wGLs9/7ZIX
+dQIDAQAB
+-----END PUBLIC KEY-----
+"""
+
+# -------------------------------
+# Root Endpoint
+# -------------------------------
 @app.get("/")
 async def home():
     return {"status": "running"}
 
-
-# Middleware for request headers
+# -------------------------------
+# Middleware
+# -------------------------------
 @app.middleware("http")
 async def add_headers(request: Request, call_next):
-    start_time = time.time()
-    request_id = str(uuid.uuid4())
+    start = time.time()
 
     response = await call_next(request)
 
-    process_time = time.time() - start_time
-
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Process-Time"] = str(process_time)
+    response.headers["X-Request-ID"] = str(uuid.uuid4())
+    response.headers["X-Process-Time"] = str(time.time() - start)
 
     return response
 
-
-# OPTIONS endpoint for CORS preflight
+# -------------------------------
+# CORS Preflight
+# -------------------------------
 @app.options("/stats")
-async def preflight(request: Request):
+async def stats_options(request: Request):
+
     origin = request.headers.get("origin")
 
     if origin == ALLOWED_ORIGIN:
@@ -46,13 +70,14 @@ async def preflight(request: Request):
             },
         )
 
-    # Reject other origins without ACAO header
     return Response(status_code=403)
 
-
-# GET endpoint
+# -------------------------------
+# Statistics Endpoint
+# -------------------------------
 @app.get("/stats")
-async def get_stats(request: Request, values: str):
+async def stats(request: Request, values: str):
+
     origin = request.headers.get("origin")
 
     try:
@@ -63,10 +88,10 @@ async def get_stats(request: Request, values: str):
             content={"error": "Invalid input"}
         )
 
-    if not nums:
+    if len(nums) == 0:
         return JSONResponse(
             status_code=400,
-            content={"error": "Empty values"}
+            content={"error": "Empty input"}
         )
 
     response = JSONResponse(
@@ -80,8 +105,44 @@ async def get_stats(request: Request, values: str):
         }
     )
 
-    # Only the allowed origin gets ACAO
     if origin == ALLOWED_ORIGIN:
         response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
 
     return response
+
+# -------------------------------
+# JWT Verification Endpoint
+# -------------------------------
+@app.post("/verify")
+async def verify(data: dict):
+
+    token = data.get("token")
+
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"valid": False}
+        )
+
+    try:
+
+        payload = jwt.decode(
+            token,
+            PUBLIC_KEY,
+            algorithms=["RS256"],
+            audience=AUDIENCE,
+            issuer=ISSUER,
+        )
+
+        return {
+            "valid": True,
+            "email": payload.get("email"),
+            "sub": payload.get("sub"),
+            "aud": payload.get("aud"),
+        }
+
+    except InvalidTokenError:
+        return JSONResponse(
+            status_code=401,
+            content={"valid": False}
+        )
