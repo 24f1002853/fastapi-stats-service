@@ -150,7 +150,7 @@ async def verify(data: dict):
             content={"valid": False}
         )
 # -------------------------------
- Effective Config
+# Effective Config
 # -------------------------------
 @app.options("/effective-config")
 async def effective_config_options():
