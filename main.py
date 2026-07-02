@@ -41,7 +41,9 @@ async def preflight(request: Request):
         )
 
     return Response(status_code=403)  # no ACAO header
-
+@app.get("/")
+async def home():
+    return {"status": "running"}
 
 # -------- Main endpoint --------
 @app.get("/stats")
