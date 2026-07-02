@@ -1,21 +1,21 @@
-from fastapi import FastAPI, Request, Response,CORSMiddleware
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 import time
 import uuid
 
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://dash-o11rja.example.com"],
-    allow_methods=["GET", "OPTIONS"],
-    allow_headers=["*"],
-)
 
 ALLOWED_ORIGIN = "https://dash-o11rja.example.com"
 EMAIL = "24f1002853@ds.study.iitm.ac.in"
 
 
-# -------- Middleware for headers --------
+# Root endpoint (optional but recommended)
+@app.get("/")
+async def home():
+    return {"status": "running"}
+
+
+# Middleware for request headers
 @app.middleware("http")
 async def add_headers(request: Request, call_next):
     start_time = time.time()
@@ -31,7 +31,7 @@ async def add_headers(request: Request, call_next):
     return response
 
 
-# -------- CORS handling --------
+# OPTIONS endpoint for CORS preflight
 @app.options("/stats")
 async def preflight(request: Request):
     origin = request.headers.get("origin")
@@ -46,43 +46,41 @@ async def preflight(request: Request):
             },
         )
 
-    return Response(status_code=403)  # no ACAO header
-@app.get("/")
-async def home():
-    return {"status": "running"}
+    # Reject other origins without ACAO header
+    return Response(status_code=403)
 
-# -------- Main endpoint --------
+
+# GET endpoint
 @app.get("/stats")
 async def get_stats(request: Request, values: str):
     origin = request.headers.get("origin")
 
-    # Parse values
     try:
         nums = [int(x.strip()) for x in values.split(",") if x.strip()]
-    except:
-        return JSONResponse(status_code=400, content={"error": "Invalid input"})
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid input"}
+        )
 
     if not nums:
-        return JSONResponse(status_code=400, content={"error": "Empty values"})
-
-    count = len(nums)
-    total = sum(nums)
-    minimum = min(nums)
-    maximum = max(nums)
-    mean = total / count
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Empty values"}
+        )
 
     response = JSONResponse(
         content={
             "email": EMAIL,
-            "count": count,
-            "sum": total,
-            "min": minimum,
-            "max": maximum,
-            "mean": mean,
+            "count": len(nums),
+            "sum": sum(nums),
+            "min": min(nums),
+            "max": max(nums),
+            "mean": sum(nums) / len(nums),
         }
     )
 
-    # Apply strict CORS
+    # Only the allowed origin gets ACAO
     if origin == ALLOWED_ORIGIN:
         response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
 
