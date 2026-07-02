@@ -191,18 +191,12 @@ async def effective_config(request: Request):
     if env.get("APP_API_KEY"):
         config["api_key"] = env["APP_API_KEY"]
 
-    mapping = {
-        "APP_PORT": ("port", int),
-        "NUM_WORKERS": ("workers", int),
-        "APP_DEBUG": ("debug", lambda x: x.lower() in ("true","1","yes","on")),
-        "APP_LOG_LEVEL": ("log_level", str),
-        "APP_API_KEY": ("api_key", str),
-    }
+ # OS Environment layer (assigned values)
+   os_layer = {
+        "port": 8678
+   }
 
-    for env_name, (key, conv) in mapping.items():
-        value = os.getenv(env_name)
-        if value is not None:
-            config[key] = conv(value)
+config.update(os_layer)
 
     for item in request.query_params.getlist("set"):
         if "=" not in item:
