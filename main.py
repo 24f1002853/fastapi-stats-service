@@ -3,6 +3,9 @@ from fastapi.responses import JSONResponse
 import time
 import uuid
 import jwt
+import os
+import yaml
+from dotenv import dotenv_values
 from jwt import InvalidTokenError
 
 app = FastAPI()
@@ -146,3 +149,97 @@ async def verify(data: dict):
             status_code=401,
             content={"valid": False}
         )
+# -------------------------------
+ Effective Config
+# -------------------------------
+
+@app.options("/effective-config")
+async def effective_config_options():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+@app.get("/effective-config")
+async def effective_config(request: Request):
+
+    config = {
+        "port": 8000,
+        "workers": 1,
+        "debug": False,
+        "log_level": "info",
+        "api_key": "default-secret-000",
+    }
+
+    # YAML
+    if os.path.exists("config.development.yaml"):
+        with open("config.development.yaml") as f:
+            yaml_cfg = yaml.safe_load(f) or {}
+            config.update(yaml_cfg)
+
+    # .env
+    env_cfg = dotenv_values(".env")
+
+    if env_cfg.get("APP_PORT"):
+        config["port"] = int(env_cfg["APP_PORT"])
+
+    if env_cfg.get("NUM_WORKERS"):
+        config["workers"] = int(env_cfg["NUM_WORKERS"])
+
+    if env_cfg.get("APP_DEBUG"):
+        config["debug"] = env_cfg["APP_DEBUG"].lower() in (
+            "true", "1", "yes", "on"
+        )
+
+    if env_cfg.get("APP_LOG_LEVEL"):
+        config["log_level"] = env_cfg["APP_LOG_LEVEL"]
+
+    if env_cfg.get("APP_API_KEY"):
+        config["api_key"] = env_cfg["APP_API_KEY"]
+
+    # OS Environment Variables
+    mapping = {
+        "APP_PORT": ("port", int),
+        "NUM_WORKERS": ("workers", int),
+        "APP_DEBUG": ("debug", lambda x: x.lower() in ("true","1","yes","on")),
+        "APP_LOG_LEVEL": ("log_level", str),
+        "APP_API_KEY": ("api_key", str),
+    }
+
+    for env_name, (cfg_key, converter) in mapping.items():
+        if os.getenv(env_name):
+            config[cfg_key] = converter(os.getenv(env_name))
+
+    # CLI overrides
+    for item in request.query_params.getlist("set"):
+
+        if "=" not in item:
+            continue
+
+        key, value = item.split("=", 1)
+
+        if key in ("port", "workers"):
+            config[key] = int(value)
+
+        elif key == "debug":
+            config[key] = value.lower() in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            )
+
+        else:
+            config[key] = value
+
+    config["api_key"] = "****"
+
+    response = JSONResponse(content=config)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+
+    return response
