@@ -191,12 +191,12 @@ async def effective_config(request: Request):
     if env.get("APP_API_KEY"):
         config["api_key"] = env["APP_API_KEY"]
 
- # OS Environment layer (assigned values)
-   os_layer = {
-        "port": 8678
-   }
+    # OS Environment layer (assigned values)
+    os_layer = {
+         "port": 8678
+    }
 
-config.update(os_layer)
+    config.update(os_layer)
 
     for item in request.query_params.getlist("set"):
         if "=" not in item:
