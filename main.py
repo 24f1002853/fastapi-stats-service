@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import time
 import uuid
 import jwt
@@ -18,13 +17,7 @@ from datetime import datetime
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 START_TIME = time.time()
 
 REQUEST_COUNTER = Counter(
