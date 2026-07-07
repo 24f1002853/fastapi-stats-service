@@ -11,8 +11,13 @@ from jwt import InvalidTokenError
 from pydantic import BaseModel
 from typing import List
 from fastapi import Header
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+import logging
+from collections import deque
+from datetime import datetime
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,6 +25,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+START_TIME = time.time()
+
+REQUEST_COUNTER = Counter(
+    "http_requests_total",
+    "Total HTTP requests"
+)
+LOGS = deque(maxlen=1000)
 class Event(BaseModel):
     user: str
     amount: float
@@ -64,12 +76,26 @@ async def home():
 # -------------------------------
 @app.middleware("http")
 async def add_headers(request: Request, call_next):
+
     start = time.time()
+    request_id = str(uuid.uuid4())
+
+    if request.url.path != "/metrics":
+        REQUEST_COUNTER.inc()
 
     response = await call_next(request)
 
-    response.headers["X-Request-ID"] = str(uuid.uuid4())
+    response.headers["X-Request-ID"] = request_id
     response.headers["X-Process-Time"] = str(time.time() - start)
+
+    LOGS.append(
+        {
+            "level": "INFO",
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "path": request.url.path,
+            "request_id": request_id,
+        }
+    )
 
     return response
 
@@ -291,3 +317,31 @@ async def analytics(
     response.headers["Access-Control-Allow-Origin"] = "*"
 
     return response
+@app.get("/work")
+async def work(n: int):
+
+    for _ in range(n):
+        pass
+
+    return {
+        "email": EMAIL,
+        "done": n
+    }
+@app.get("/metrics")
+async def metrics():
+
+    return Response(
+        generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+@app.get("/healthz")
+async def healthz():
+
+    return {
+        "status": "ok",
+        "uptime_s": time.time() - START_TIME
+    }
+@app.get("/logs/tail")
+async def tail(limit: int = 10):
+
+    return list(LOGS)[-max(limit, 0):]
