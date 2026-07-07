@@ -10,6 +10,7 @@ from jwt import InvalidTokenError
 from pydantic import BaseModel
 from typing import List
 
+app = FastAPI()
 class Event(BaseModel):
     user: str
     amount: float
@@ -17,9 +18,6 @@ class Event(BaseModel):
 
 class AnalyticsRequest(BaseModel):
     events: List[Event]
-    
-
-app = FastAPI()
 API_KEY = "ak_ry4mt5tw9jbo4gt3sqal4cw2"
 # -------------------------------
 # Assignment 1 Configuration
