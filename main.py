@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 from jwt import InvalidTokenError
 from pydantic import BaseModel
 from typing import List
+from fastapi import Header
 
 app = FastAPI()
 class Event(BaseModel):
@@ -230,12 +231,11 @@ async def effective_config(request: Request):
 # Analytics Endpoint
 # -------------------------------
 @app.post("/analytics")
-async def analytics(payload: AnalyticsRequest, request: Request):
-
-    # API Key Authentication
-    api_key = request.headers.get("X-API-Key")
-
-    if api_key != API_KEY:
+async def analytics(
+    payload: AnalyticsRequest,
+    x_api_key: str = Header(None, alias="X-API-Key")
+):
+    if x_api_key != API_KEY:
         return JSONResponse(
             status_code=401,
             content={"detail": "Unauthorized"},
