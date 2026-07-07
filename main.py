@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import time
 import uuid
 import jwt
@@ -12,6 +13,13 @@ from typing import List
 from fastapi import Header
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 class Event(BaseModel):
     user: str
     amount: float
@@ -227,6 +235,17 @@ async def effective_config(request: Request):
 # -------------------------------
 # Analytics CORS Preflight
 # -------------------------------
+@app.options("/analytics")
+async def analytics_options():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
 # -------------------------------
 # Analytics Endpoint
 # -------------------------------
@@ -238,7 +257,7 @@ async def analytics(
     if x_api_key != API_KEY:
         return JSONResponse(
             status_code=401,
-            content={"detail": "Unauthorized"},
+            content={"valid": False},
         )
 
     events = payload.events
