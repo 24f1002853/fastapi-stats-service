@@ -9,7 +9,7 @@ from dotenv import dotenv_values
 from jwt import InvalidTokenError
 
 app = FastAPI()
-
+API_KEY = "ak_ry4mt5tw9jbo4gt3sqal4cw2"
 # -------------------------------
 # Assignment 1 Configuration
 # -------------------------------
@@ -214,3 +214,71 @@ async def effective_config(request: Request):
     resp = JSONResponse(content=config)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
+# -------------------------------
+# Analytics CORS Preflight
+# -------------------------------
+@app.options("/analytics")
+async def analytics_options():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+# -------------------------------
+# Analytics Endpoint
+# -------------------------------
+@app.post("/analytics")
+async def analytics(request: Request):
+
+    # API Key Authentication
+    api_key = request.headers.get("X-API-Key")
+
+    if api_key != API_KEY:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+        )
+
+    body = await request.json()
+
+    events = body.get("events", [])
+
+    total_events = len(events)
+
+    unique_users = len(set(event["user"] for event in events))
+
+    revenue = 0.0
+    user_totals = {}
+
+    for event in events:
+
+        amount = float(event.get("amount", 0))
+        user = event.get("user")
+
+        if amount > 0:
+            revenue += amount
+            user_totals[user] = user_totals.get(user, 0) + amount
+
+    top_user = ""
+
+    if user_totals:
+        top_user = max(user_totals, key=user_totals.get)
+
+    response = JSONResponse(
+        content={
+            "email": EMAIL,
+            "total_events": total_events,
+            "unique_users": unique_users,
+            "revenue": revenue,
+            "top_user": top_user,
+        }
+    )
+
+    response.headers["Access-Control-Allow-Origin"] = "*"
+
+    return response
