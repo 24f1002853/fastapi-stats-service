@@ -7,6 +7,17 @@ import os
 import yaml
 from dotenv import dotenv_values
 from jwt import InvalidTokenError
+from pydantic import BaseModel
+from typing import List
+
+class Event(BaseModel):
+    user: str
+    amount: float
+    ts: int
+
+class AnalyticsRequest(BaseModel):
+    events: List[Event]
+    
 
 app = FastAPI()
 API_KEY = "ak_ry4mt5tw9jbo4gt3sqal4cw2"
@@ -217,23 +228,11 @@ async def effective_config(request: Request):
 # -------------------------------
 # Analytics CORS Preflight
 # -------------------------------
-@app.options("/analytics")
-async def analytics_options():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        },
-    )
-
-
 # -------------------------------
 # Analytics Endpoint
 # -------------------------------
 @app.post("/analytics")
-async def analytics(request: Request):
+async def analytics(payload: AnalyticsRequest, request: Request):
 
     # API Key Authentication
     api_key = request.headers.get("X-API-Key")
@@ -244,30 +243,23 @@ async def analytics(request: Request):
             content={"detail": "Unauthorized"},
         )
 
-    body = await request.json()
-
-    events = body.get("events", [])
+    events = payload.events
 
     total_events = len(events)
 
-    unique_users = len(set(event["user"] for event in events))
+    unique_users = len({event.user for event in events})
 
     revenue = 0.0
     user_totals = {}
 
     for event in events:
+        if event.amount > 0:
+            revenue += event.amount
+            user_totals[event.user] = (
+                user_totals.get(event.user, 0) + event.amount
+            )
 
-        amount = float(event.get("amount", 0))
-        user = event.get("user")
-
-        if amount > 0:
-            revenue += amount
-            user_totals[user] = user_totals.get(user, 0) + amount
-
-    top_user = ""
-
-    if user_totals:
-        top_user = max(user_totals, key=user_totals.get)
+    top_user = max(user_totals, key=user_totals.get) if user_totals else ""
 
     response = JSONResponse(
         content={
